@@ -180,6 +180,10 @@ public class ModuleFactory {
 	 * Attempt to load the given files as OpenMRS modules
 	 * 
 	 * @param modulesToLoad the list of files to try and load
+	 * @should not crash when file is not found or broken
+	 * @should setup requirement mappings for every module
+	 * @should not start the loaded modules
+	 * 
 	 */
 	public static void loadModules(List<File> modulesToLoad) {
 		// loop over the modules and load all the modules that we can
@@ -299,6 +303,7 @@ public class ModuleFactory {
 	 * Sort modules in startup order based on required and aware-of dependencies
 	 * 
 	 * @param modules list of modules to sort
+	 * @should return modules in startup order by requirements
 	 * @return list of modules sorted by dependencies
 	 * @throws CycleException
 	 */
@@ -383,7 +388,8 @@ public class ModuleFactory {
 	/**
 	 * Returns all modules found/loaded into the system (started and not started), with the core
 	 * modules at the start of that list
-	 * 
+	 *
+	 * @should return all loaded modules
 	 * @return <code>List&lt;Module&gt;</code> of the modules loaded into the system, with the core
 	 *         modules first.
 	 */
@@ -1671,6 +1677,8 @@ public class ModuleFactory {
 	 * @param moduleId the moduleId used to identify the module being validated
 	 * @return List&lt;dependentModules&gt; the list of moduleId's which depend on the module about to be
 	 *         shutdown.
+	 * @should return null in the case of no dependencies
+	 * @should find ids of dependent modules
 	 * @since 1.10
 	 */
 	public static List<String> getDependencies(String moduleId) {

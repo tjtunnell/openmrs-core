@@ -11,6 +11,9 @@ package org.openmrs.module;
 
 import java.io.File;
 
+import java.util.List;
+import java.util.ArrayList;
+
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.AfterClass;
@@ -28,6 +31,9 @@ public class ModuleFactoryTest extends BaseContextSensitiveTest {
 	
 	protected static final String MODULE2 = "test2";
 	protected static final String MODULE2_PATH = "org/openmrs/module/include/test2-1.0-SNAPSHOT.omod";
+	
+	protected static final String MODULE3 = "test3";
+	protected static final String MODULE3_PATH = "org/openmrs/module/include/test3-1.0-SNAPSHOT.omod";
 	
 	@Before
 	public void before() throws Exception {
@@ -111,11 +117,113 @@ public class ModuleFactoryTest extends BaseContextSensitiveTest {
 		Assert.assertEquals(newModule, oldModule);
 		Assert.assertNotNull(ModuleFactory.getLoadedModules().contains(oldModule));
 	}
+
+	@Test
+	@Verifies(value = "should not crash when file is not found or broken", method = "loadModules")
+	public void loadModules_shouldNotCrashWhenFileIsNotFoundOrBroken() {
+		ModuleFactory.unloadModule(ModuleFactory.getModuleById(MODULE1));
+		String moduleLocation = ModuleUtil.class.getClassLoader().getResource(MODULE1_PATH).getPath();
+		moduleLocation += "/i/broke/this/path/module.omod";
+		File moduleToLoad = new File(moduleLocation);
+		
+		List<File> modulesToLoad = new ArrayList<File>();
+		modulesToLoad.add(moduleToLoad);
+		ModuleFactory.loadModules(modulesToLoad);
+		
+		Assert.assertEquals(0, ModuleFactory.getLoadedModules().size());
+	}
+	
+	@Test
+	@Verifies(value = "should setup requirement mappings for every module", method = "loadModules") 
+	public void loadModules_shouldSetupRequirementMappingsForEveryModule() {
+		ModuleFactory.unloadModule(ModuleFactory.getModuleById(MODULE1));
+		
+		List<File> modulesToLoad = getModuleFiles();
+		
+		ModuleFactory.loadModules(modulesToLoad);
+		Assert.assertEquals(3, ModuleFactory.getLoadedModules().size());
+		
+		Module test1 = ModuleFactory.getModuleById(MODULE1);
+		Module test2 = ModuleFactory.getModuleById(MODULE2);
+		Module test3 = ModuleFactory.getModuleById(MODULE3);
+		
+		Assert.assertEquals(0, test1.getRequiredModules().size());
+		Assert.assertEquals(1, test2.getRequiredModules().size());
+		Assert.assertEquals(1, test3.getRequiredModules().size());
+	}
+	
+	@Test
+	@Verifies(value = "should not start the loaded modules", method = "loadModules") 
+	public void loadModules_shouldNotStartTheLoadedModules() {
+		ModuleFactory.unloadModule(ModuleFactory.getModuleById(MODULE1));
+		
+		List<File> modulesToLoad = getModuleFiles();
+		
+		ModuleFactory.loadModules(modulesToLoad);
+		Assert.assertEquals(3, ModuleFactory.getLoadedModules().size());
+		
+		Module test1 = ModuleFactory.getModuleById(MODULE1);
+		Module test2 = ModuleFactory.getModuleById(MODULE2);
+		Module test3 = ModuleFactory.getModuleById(MODULE3);
+		
+		Assert.assertFalse(test1.isStarted());
+		Assert.assertFalse(test2.isStarted());
+		Assert.assertFalse(test3.isStarted());
+	}
+	
+	@Test
+	@Verifies(value = "shound return null in the case of no dependencies", method = "getDependencies")
+	public void getDependencies_shouldReturnNullInTheCaseOfNoDependencies() {
+		Assert.assertNull(ModuleFactory.getDependencies(MODULE1));
+		
+		//check a module with a dependency is not null
+		List<File> modulesToLoad = getModuleFiles();
+		
+		ModuleFactory.loadModules(modulesToLoad);
+		ModuleFactory.startModules();
+		
+		Assert.assertNotNull(ModuleFactory.getDependencies(MODULE1));
+		Assert.assertNotNull(ModuleFactory.getDependencies(MODULE2));
+		Assert.assertNull(ModuleFactory.getDependencies(MODULE3));
+	}
+	
+	@Test
+	@Verifies(value = "should find ids of dependent modules", method = "getDependencies")
+	public void getDependencies_shouldFindIdsOfDependentModules() {
+		//check a module with a dependency is not null
+		List<File> modulesToLoad = getModuleFiles();
+		
+		ModuleFactory.loadModules(modulesToLoad);
+		ModuleFactory.startModules();
+		
+		List<String> test1Dependents = ModuleFactory.getDependencies(MODULE1);
+		Module test2 = ModuleFactory.getModuleById(MODULE2);
+		Assert.assertEquals(1, test1Dependents.size());
+		String expectedDependency = test2.getModuleId() + " " + test2.getVersion();
+		Assert.assertTrue(test1Dependents.contains(expectedDependency));
+		
+		
+		List<String> test2Dependents = ModuleFactory.getDependencies(MODULE2);
+		Module test3 = ModuleFactory.getModuleById(MODULE3);
+		Assert.assertEquals(1, test2Dependents.size());
+		expectedDependency = test3.getModuleId() + " " + test3.getVersion();
+		Assert.assertTrue(test2Dependents.contains(expectedDependency));
+	}
+	
 	
 	private Module loadModule(String location, String moduleName, boolean replace) {
 		String moduleLocation = ModuleUtil.class.getClassLoader().getResource(location).getPath();
 		Module newModule = ModuleFactory.loadModule(new File(moduleLocation), replace);
 
 		return newModule;
+	}
+	
+	private List<File> getModuleFiles() {
+		List<File> modulesToLoad = new ArrayList<File>();
+		modulesToLoad.add(new File(ModuleUtil.class.getClassLoader().getResource(MODULE1_PATH).getPath()));
+		modulesToLoad.add(new File(ModuleUtil.class.getClassLoader().getResource(MODULE2_PATH).getPath()));
+		modulesToLoad.add(new File(ModuleUtil.class.getClassLoader().getResource(MODULE3_PATH).getPath()));
+		
+		return modulesToLoad;
 	}
 }
